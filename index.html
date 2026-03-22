@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>For Velmira 💖</title>
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    background: #ffe6f0; /* soft pink */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    overflow: hidden;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  h1 {
+    color: #ff0066;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+  }
+
+  p {
+    color: #800040;
+    font-size: 1.5rem;
+  }
+
+  .heart {
+    position: absolute;
+    font-size: 2rem;
+    animation: floatUp 5s linear infinite;
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Velmira 💖</h1>
+<p>Every day with you feels like magic 🌟<br>Skyven thinks you’re awesome 😏</p>
+
+<script>
+  // Create floating hearts
+  setInterval(() => {
+    const heart = document.createElement('div');
+    heart.className = 'heart';
+    heart.textContent = '💖';
+    heart.style.left = Math.random() * window.innerWidth + 'px';
+    heart.style.fontSize = (Math.random() * 30 + 20) + 'px';
+    heart.style.animationDuration = (Math.random() * 3 + 4) + 's';
+    document.body.appendChild(heart);
+    setTimeout(() => heart.remove(), 5000);
+  }, 300);
+</script>
+
+</body>
+</html>
