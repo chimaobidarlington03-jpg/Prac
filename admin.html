@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin</title>
+</head>
+<body>
+
+<h2>Admin Panel</h2>
+
+<h3>Find User</h3>
+<input id="searchEmail" placeholder="Email">
+<button onclick="findUser()">Search</button>
+<p id="foundUser"></p>
+
+<input id="controlUserId" placeholder="User ID"><br><br>
+<input id="controlAmount" type="number" placeholder="Amount"><br><br>
+
+<button onclick="addBalance()">Add</button>
+<button onclick="removeBalance()">Remove</button>
+
+<hr>
+
+<h3>Deposits</h3>
+<div id="deposits"></div>
+
+<h3>Withdrawals</h3>
+<div id="withdrawals"></div>
+
+<h3>Logs</h3>
+<div id="logs"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyADD6zb-bPiW1zUd3k6luEe2Bz7_n5xPBg",
+  authDomain: "skyvest-student-hub.firebaseapp.com",
+  projectId: "skyvest-student-hub"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const ADMIN_EMAIL = "skyvestcapital.ng@gmail.com";
+
+let selectedUserId = null;
+
+auth.onAuthStateChanged(user=>{
+  if(!user || user.email !== ADMIN_EMAIL){
+    window.location.href="index.html";
+    return;
+  }
+
+  loadDeposits();
+  loadWithdrawals();
+  loadLogs();
+});
+
+function findUser(){
+  let email = document.getElementById("searchEmail").value;
+
+  db.collection("users").where("email","==",email).get()
+  .then(snap=>{
+    snap.forEach(doc=>{
+      selectedUserId = doc.id;
+      document.getElementById("controlUserId").value = doc.id;
+      document.getElementById("foundUser").innerText =
+        email + " | Balance: ₦" + doc.data().balance;
+    });
+  });
+}
+
+function addBalance(){
+  let id = selectedUserId;
+  let amt = Number(document.getElementById("controlAmount").value);
+
+  db.collection("users").doc(id).get().then(doc=>{
+    let newBal = (doc.data().balance||0)+amt;
+
+    db.collection("users").doc(id).update({balance:newBal});
+
+    db.collection("admin_logs").add({
+      admin: auth.currentUser.email,
+      userId: id,
+      action: "ADD",
+      amount: amt,
+      date: new Date()
+    });
+  });
+}
+
+function removeBalance(){
+  let id = selectedUserId;
+  let amt = Number(document.getElementById("controlAmount").value);
+
+  db.collection("users").doc(id).get().then(doc=>{
+    let cur = doc.data().balance||0;
+    if(cur<amt) return alert("Not enough");
+
+    db.collection("users").doc(id).update({balance:cur-amt});
+
+    db.collection("admin_logs").add({
+      admin: auth.currentUser.email,
+      userId: id,
+      action: "REMOVE",
+      amount: amt,
+      date: new Date()
+    });
+  });
+}
+
+function loadDeposits(){
+  let div=document.getElementById("deposits");
+  db.collection("deposits").get().then(snap=>{
+    div.innerHTML="";
+    snap.forEach(doc=>{
+      let d=doc.data();
+      div.innerHTML+=`
+        <p>₦${d.amount} - ${d.status}
+        <button onclick="approveDeposit('${doc.id}','${d.userId}',${d.amount})">Approve</button></p>`;
+    });
+  });
+}
+
+function approveDeposit(id,uid,amt){
+  let ref=db.collection("users").doc(uid);
+  ref.get().then(doc=>{
+    ref.update({balance:(doc.data().balance||0)+amt});
+  });
+
+  db.collection("deposits").doc(id).update({status:"approved"});
+  loadDeposits();
+}
+
+function loadWithdrawals(){
+  let div=document.getElementById("withdrawals");
+  db.collection("withdrawals").get().then(snap=>{
+    div.innerHTML="";
+    snap.forEach(doc=>{
+      let d=doc.data();
+      div.innerHTML+=`
+        <p>₦${d.amount} - ${d.status}
+        <button onclick="approveWithdrawal('${doc.id}','${d.userId}',${d.amount})">Approve</button></p>`;
+    });
+  });
+}
+
+function approveWithdrawal(id,uid,amt){
+  let ref=db.collection("users").doc(uid);
+
+  ref.get().then(doc=>{
+    let cur=doc.data().balance||0;
+    if(cur<amt) return alert("Not enough");
+
+    ref.update({balance:cur-amt});
+  });
+
+  db.collection("withdrawals").doc(id).update({status:"approved"});
+  loadWithdrawals();
+}
+
+function loadLogs(){
+  let div=document.getElementById("logs");
+  db.collection("admin_logs").get().then(snap=>{
+    div.innerHTML="";
+    snap.forEach(doc=>{
+      let d=doc.data();
+      div.innerHTML+=`<p>${d.action} ₦${d.amount}</p>`;
+    });
+  });
+}
+</script>
+
+</body>
+</html>
