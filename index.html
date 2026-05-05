@@ -1,30 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Skyvest</title>
+  <title>Skyvest Student Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body{
+      font-family: Arial;
+      background:#0f172a;
+      color:white;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      margin:0;
+    }
+
+    .box{
+      background:#1e293b;
+      padding:25px;
+      border-radius:10px;
+      width:300px;
+      text-align:center;
+    }
+
+    input{
+      width:100%;
+      padding:10px;
+      margin:8px 0;
+      border:none;
+      border-radius:5px;
+    }
+
+    button{
+      width:100%;
+      padding:10px;
+      margin-top:10px;
+      border:none;
+      border-radius:5px;
+      background:#16a34a;
+      color:white;
+      cursor:pointer;
+    }
+
+    button:hover{
+      background:#15803d;
+    }
+
+    .switch{
+      margin-top:10px;
+      cursor:pointer;
+      color:#22c55e;
+    }
+
+    #msg{
+      margin-top:10px;
+      color:#f87171;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>Login</h2>
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
-<button onclick="login()">Login</button>
+<div class="box">
 
-<hr>
+  <h2 id="title">Login</h2>
 
-<h3>Register</h3>
-<input id="username" placeholder="Username"><br><br>
-<input id="regEmail" placeholder="Email"><br><br>
-<input id="regPass" type="password" placeholder="Password"><br><br>
-<button onclick="register()">Register</button>
+  <!-- LOGIN -->
+  <div id="loginBox">
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p class="switch" onclick="showRegister()">No account? Register</p>
+  </div>
 
+  <!-- REGISTER -->
+  <div id="registerBox" style="display:none;">
+    <input type="text" id="username" placeholder="Username">
+    <input type="email" id="regEmail" placeholder="Email">
+    <input type="password" id="regPass" placeholder="Password">
+    <button onclick="register()">Register</button>
+    <p class="switch" onclick="showLogin()">Already have account? Login</p>
+  </div>
+
+  <p id="msg"></p>
+
+</div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
+  apiKey: "YOUR_API_KEY",
   authDomain: "skyvest-student-hub.firebaseapp.com",
   projectId: "skyvest-student-hub"
 };
@@ -34,23 +104,83 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-function login(){
-  auth.signInWithEmailAndPassword(email.value, password.value)
-  .then(()=> location.href="dashboard.html")
-  .catch(e=> alert(e.message));
+// 🔥 keep user logged in
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+// =====================
+// SWITCH UI
+// =====================
+function showRegister(){
+  loginBox.style.display = "none";
+  registerBox.style.display = "block";
+  title.innerText = "Register";
+  msg.innerText = "";
 }
 
-function register(){
-  auth.createUserWithEmailAndPassword(regEmail.value, regPass.value)
-  .then(user=>{
-    db.collection("users").doc(user.user.uid).set({
-      email: regEmail.value,
-      username: username.value,
-      balance: 0
-    });
-    alert("Registered!");
+function showLogin(){
+  loginBox.style.display = "block";
+  registerBox.style.display = "none";
+  title.innerText = "Login";
+  msg.innerText = "";
+}
+
+// =====================
+// LOGIN
+// =====================
+function login(){
+  let email = document.getElementById("email").value;
+  let pass = document.getElementById("password").value;
+
+  if(!email || !pass){
+    msg.innerText = "Fill all fields";
+    return;
+  }
+
+  auth.signInWithEmailAndPassword(email, pass)
+  .then(()=>{
+    window.location.href = "dashboard.html";
+  })
+  .catch(err=>{
+    msg.innerText = err.message;
   });
 }
+
+// =====================
+// REGISTER
+// =====================
+function register(){
+  let username = document.getElementById("username").value;
+  let email = document.getElementById("regEmail").value;
+  let pass = document.getElementById("regPass").value;
+
+  if(!username || !email || !pass){
+    msg.innerText = "Fill all fields";
+    return;
+  }
+
+  auth.createUserWithEmailAndPassword(email, pass)
+  .then(userCred => {
+
+    // 🔥 create user document
+    return db.collection("users").doc(userCred.user.uid).set({
+      email: email,
+      username: username,
+      balance: 0,
+      savings: 0,
+      createdAt: new Date()
+    });
+
+  })
+  .then(()=>{
+    msg.style.color = "lightgreen";
+    msg.innerText = "Registered successfully! You can now login";
+    showLogin();
+  })
+  .catch(err=>{
+    msg.innerText = err.message;
+  });
+}
+
 </script>
 
 </body>
