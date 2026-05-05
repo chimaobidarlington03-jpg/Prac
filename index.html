@@ -5,22 +5,17 @@
 </head>
 <body>
 
-<h2>Skyvest Login</h2>
-
-<input type="email" id="email" placeholder="Email"><br><br>
-<input type="password" id="password" placeholder="Password"><br><br>
-
+<h2>Login</h2>
+<input id="email" placeholder="Email"><br><br>
+<input id="password" type="password" placeholder="Password"><br><br>
 <button onclick="login()">Login</button>
-<p id="msg"></p>
 
 <hr>
 
 <h3>Register</h3>
-
-<input type="text" id="username" placeholder="Username"><br><br>
-<input type="email" id="regEmail" placeholder="Email"><br><br>
-<input type="password" id="regPass" placeholder="Password"><br><br>
-
+<input id="username" placeholder="Username"><br><br>
+<input id="regEmail" placeholder="Email"><br><br>
+<input id="regPass" type="password" placeholder="Password"><br><br>
 <button onclick="register()">Register</button>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -29,7 +24,7 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyADD6zb-bPiW1zUd3k6luEe2Bz7_n5xPBg",
+  apiKey: "YOUR_KEY",
   authDomain: "skyvest-student-hub.firebaseapp.com",
   projectId: "skyvest-student-hub"
 };
@@ -39,36 +34,22 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// 🔥 persistence
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
 function login(){
-  let email = document.getElementById("email").value;
-  let pass = document.getElementById("password").value;
-
-  auth.signInWithEmailAndPassword(email, pass)
-  .then(()=> window.location.href="dashboard.html")
-  .catch(err=> document.getElementById("msg").innerText = err.message);
+  auth.signInWithEmailAndPassword(email.value, password.value)
+  .then(()=> location.href="dashboard.html")
+  .catch(e=> alert(e.message));
 }
 
 function register(){
-  let username = document.getElementById("username").value;
-  let email = document.getElementById("regEmail").value;
-  let pass = document.getElementById("regPass").value;
-
-  auth.createUserWithEmailAndPassword(email, pass)
-  .then(userCred => {
-
-    db.collection("users").doc(userCred.user.uid).set({
-      email: email,
-      username: username,
-      balance: 0,
-      savings: 0
+  auth.createUserWithEmailAndPassword(regEmail.value, regPass.value)
+  .then(user=>{
+    db.collection("users").doc(user.user.uid).set({
+      email: regEmail.value,
+      username: username.value,
+      balance: 0
     });
-
     alert("Registered!");
-  })
-  .catch(err=> alert(err.message));
+  });
 }
 </script>
 
