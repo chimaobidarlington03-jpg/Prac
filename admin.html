@@ -1,33 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin</title>
+  <title>Skyvest Admin</title>
+
+  <style>
+    body{
+      font-family: Arial;
+      background:#0f172a;
+      color:white;
+      margin:0;
+      padding:20px;
+    }
+
+    h2, h3{
+      color:#16a34a;
+    }
+
+    .card{
+      background:#1e293b;
+      padding:15px;
+      margin:10px 0;
+      border-radius:10px;
+    }
+
+    button{
+      padding:8px 12px;
+      margin-top:5px;
+      border:none;
+      border-radius:5px;
+      background:#16a34a;
+      color:white;
+      cursor:pointer;
+    }
+
+    button:hover{
+      background:#15803d;
+    }
+  </style>
 </head>
+
 <body>
 
 <h2>Admin Panel</h2>
 
-<h3>Find User</h3>
-<input id="searchEmail" placeholder="Email">
-<button onclick="findUser()">Search</button>
-<p id="foundUser"></p>
-
-<input id="controlUserId" placeholder="User ID"><br><br>
-<input id="controlAmount" type="number" placeholder="Amount"><br><br>
-
-<button onclick="addBalance()">Add</button>
-<button onclick="removeBalance()">Remove</button>
-
-<hr>
-
 <h3>Deposits</h3>
-<div id="deposits"></div>
+<div id="deposits">Loading...</div>
 
 <h3>Withdrawals</h3>
-<div id="withdrawals"></div>
-
-<h3>Logs</h3>
-<div id="logs"></div>
+<div id="withdrawals">Loading...</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -35,7 +55,7 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyADD6zb-bPiW1zUd3k6luEe2Bz7_n5xPBg",
+  apiKey: "YOUR_API_KEY",
   authDomain: "skyvest-student-hub.firebaseapp.com",
   projectId: "skyvest-student-hub"
 };
@@ -47,132 +67,177 @@ const db = firebase.firestore();
 
 const ADMIN_EMAIL = "skyvestcapital.ng@gmail.com";
 
-let selectedUserId = null;
+// 🔐 AUTH CHECK
+auth.onAuthStateChanged(user => {
 
-auth.onAuthStateChanged(user=>{
-  if(!user || user.email !== ADMIN_EMAIL){
-    window.location.href="index.html";
+  if(!user){
+    window.location.href = "index.html";
+    return;
+  }
+
+  if(user.email !== ADMIN_EMAIL){
+    document.body.innerHTML = "<h2>Access Denied</h2>";
     return;
   }
 
   loadDeposits();
   loadWithdrawals();
-  loadLogs();
 });
 
-function findUser(){
-  let email = document.getElementById("searchEmail").value;
 
-  db.collection("users").where("email","==",email).get()
-  .then(snap=>{
-    snap.forEach(doc=>{
-      selectedUserId = doc.id;
-      document.getElementById("controlUserId").value = doc.id;
-      document.getElementById("foundUser").innerText =
-        email + " | Balance: ₦" + doc.data().balance;
-    });
-  });
-}
-
-function addBalance(){
-  let id = selectedUserId;
-  let amt = Number(document.getElementById("controlAmount").value);
-
-  db.collection("users").doc(id).get().then(doc=>{
-    let newBal = (doc.data().balance||0)+amt;
-
-    db.collection("users").doc(id).update({balance:newBal});
-
-    db.collection("admin_logs").add({
-      admin: auth.currentUser.email,
-      userId: id,
-      action: "ADD",
-      amount: amt,
-      date: new Date()
-    });
-  });
-}
-
-function removeBalance(){
-  let id = selectedUserId;
-  let amt = Number(document.getElementById("controlAmount").value);
-
-  db.collection("users").doc(id).get().then(doc=>{
-    let cur = doc.data().balance||0;
-    if(cur<amt) return alert("Not enough");
-
-    db.collection("users").doc(id).update({balance:cur-amt});
-
-    db.collection("admin_logs").add({
-      admin: auth.currentUser.email,
-      userId: id,
-      action: "REMOVE",
-      amount: amt,
-      date: new Date()
-    });
-  });
-}
-
+// ======================
+// 💰 LOAD DEPOSITS
+// ======================
 function loadDeposits(){
-  let div=document.getElementById("deposits");
-  db.collection("deposits").get().then(snap=>{
-    div.innerHTML="";
-    snap.forEach(doc=>{
-      let d=doc.data();
-      div.innerHTML+=`
-        <p>₦${d.amount} - ${d.status}
-        <button onclick="approveDeposit('${doc.id}','${d.userId}',${d.amount})">Approve</button></p>`;
+  const container = document.getElementById("deposits");
+  container.innerHTML = "Loading...";
+
+  db.collection("deposits")
+  .orderBy("date","desc")
+  .get()
+  .then(snapshot => {
+
+    if(snapshot.empty){
+      container.innerHTML = "No deposits found";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    snapshot.forEach(doc => {
+      let d = doc.data();
+
+      container.innerHTML += `
+        <div class="card">
+          <p><b>Email:</b> ${d.email || "N/A"}</p>
+          <p><b>Amount:</b> ₦${d.amount}</p>
+          <p><b>Proof:</b> ${d.proof || "N/A"}</p>
+          <p><b>Status:</b> ${d.status}</p>
+
+          ${d.status === "pending" ? `
+            <button onclick="approveDeposit('${doc.id}','${d.userId}',${d.amount})">
+              Approve
+            </button>
+          ` : ""}
+        </div>
+      `;
     });
+
+  })
+  .catch(err => {
+    console.log(err);
+    container.innerHTML = "Error loading deposits";
   });
 }
 
-function approveDeposit(id,uid,amt){
-  let ref=db.collection("users").doc(uid);
-  ref.get().then(doc=>{
-    ref.update({balance:(doc.data().balance||0)+amt});
+
+// ======================
+// ✅ APPROVE DEPOSIT
+// ======================
+function approveDeposit(docId, userId, amount){
+
+  let userRef = db.collection("users").doc(userId);
+
+  userRef.get().then(doc => {
+    if(!doc.exists){
+      alert("User not found");
+      return;
+    }
+
+    let newBalance = (doc.data().balance || 0) + Number(amount);
+
+    userRef.update({ balance: newBalance });
   });
 
-  db.collection("deposits").doc(id).update({status:"approved"});
+  db.collection("deposits").doc(docId).update({
+    status: "approved"
+  });
+
+  alert("Deposit approved!");
   loadDeposits();
 }
 
+
+// ======================
+// 💸 LOAD WITHDRAWALS
+// ======================
 function loadWithdrawals(){
-  let div=document.getElementById("withdrawals");
-  db.collection("withdrawals").get().then(snap=>{
-    div.innerHTML="";
-    snap.forEach(doc=>{
-      let d=doc.data();
-      div.innerHTML+=`
-        <p>₦${d.amount} - ${d.status}
-        <button onclick="approveWithdrawal('${doc.id}','${d.userId}',${d.amount})">Approve</button></p>`;
+  const container = document.getElementById("withdrawals");
+  container.innerHTML = "Loading...";
+
+  db.collection("withdrawals")
+  .orderBy("date","desc")
+  .get()
+  .then(snapshot => {
+
+    if(snapshot.empty){
+      container.innerHTML = "No withdrawals found";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    snapshot.forEach(doc => {
+      let d = doc.data();
+
+      container.innerHTML += `
+        <div class="card">
+          <p><b>Email:</b> ${d.email || "N/A"}</p>
+          <p><b>Amount:</b> ₦${d.amount}</p>
+          <p><b>Account:</b> ${d.account || "N/A"}</p>
+          <p><b>Status:</b> ${d.status}</p>
+
+          ${d.status === "pending" ? `
+            <button onclick="approveWithdrawal('${doc.id}','${d.userId}',${d.amount})">
+              Approve
+            </button>
+          ` : ""}
+        </div>
+      `;
     });
+
+  })
+  .catch(err => {
+    console.log(err);
+    container.innerHTML = "Error loading withdrawals";
   });
 }
 
-function approveWithdrawal(id,uid,amt){
-  let ref=db.collection("users").doc(uid);
 
-  ref.get().then(doc=>{
-    let cur=doc.data().balance||0;
-    if(cur<amt) return alert("Not enough");
+// ======================
+// ✅ APPROVE WITHDRAWAL
+// ======================
+function approveWithdrawal(docId, userId, amount){
 
-    ref.update({balance:cur-amt});
+  let userRef = db.collection("users").doc(userId);
+
+  userRef.get().then(doc => {
+
+    if(!doc.exists){
+      alert("User not found");
+      return;
+    }
+
+    let current = doc.data().balance || 0;
+
+    if(current < amount){
+      alert("User does not have enough balance");
+      return;
+    }
+
+    userRef.update({
+      balance: current - Number(amount)
+    });
   });
 
-  db.collection("withdrawals").doc(id).update({status:"approved"});
+  db.collection("withdrawals").doc(docId).update({
+    status: "approved"
+  });
+
+  alert("Withdrawal approved!");
   loadWithdrawals();
 }
 
-function loadLogs(){
-  let div=document.getElementById("logs");
-  db.collection("admin_logs").get().then(snap=>{
-    div.innerHTML="";
-    snap.forEach(doc=>{
-      let d=doc.data();
-      div.innerHTML+=`<p>${d.action} ₦${d.amount}</p>`;
-    });
-  });
-}
 </script>
 
 </body>
