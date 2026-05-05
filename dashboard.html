@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+</head>
+<body>
+
+<h2>Dashboard</h2>
+
+<p>Balance: ₦<span id="balance">0</span></p>
+<p>Savings: ₦<span id="savings">0</span></p>
+
+<button onclick="deposit()">Deposit</button>
+<button onclick="requestWithdrawal()">Withdraw</button>
+<button onclick="logout()">Logout</button>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyADD6zb-bPiW1zUd3k6luEe2Bz7_n5xPBg",
+  authDomain: "skyvest-student-hub.firebaseapp.com",
+  projectId: "skyvest-student-hub"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser;
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    currentUser = user;
+    setTimeout(()=> loadUser(user.uid), 300);
+  } else {
+    window.location.href="index.html";
+  }
+});
+
+function loadUser(uid){
+  db.collection("users").doc(uid).get().then(doc=>{
+    let d = doc.data();
+    document.getElementById("balance").innerText = d.balance || 0;
+    document.getElementById("savings").innerText = d.savings || 0;
+  });
+}
+
+function deposit(){
+  let amount = prompt("Amount sent:");
+  let proof = prompt("Reference:");
+
+  db.collection("deposits").add({
+    userId: currentUser.uid,
+    amount: Number(amount),
+    proof: proof,
+    status: "pending"
+  });
+
+  alert("Deposit request sent");
+}
+
+function requestWithdrawal(){
+  let amount = prompt("Amount:");
+  let account = prompt("Account details:");
+
+  db.collection("withdrawals").add({
+    userId: currentUser.uid,
+    amount: Number(amount),
+    account: account,
+    status: "pending"
+  });
+
+  alert("Withdrawal request sent");
+}
+
+function logout(){
+  auth.signOut().then(()=> window.location.href="index.html");
+}
+</script>
+
+</body>
+</html>
