@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
+<title>Dashboard</title>
 </head>
 <body>
 
 <h2>Dashboard</h2>
 
 <p>Balance: ₦<span id="balance">0</span></p>
-<p>Savings: ₦<span id="savings">0</span></p>
 
 <button onclick="deposit()">Deposit</button>
-<button onclick="requestWithdrawal()">Withdraw</button>
-<button onclick="logout()">Logout</button>
+<button onclick="withdraw()">Withdraw</button>
+
+<h3>History</h3>
+<div id="history"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -20,7 +21,7 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyADD6zb-bPiW1zUd3k6luEe2Bz7_n5xPBg",
+  apiKey: "YOUR_KEY",
   authDomain: "skyvest-student-hub.firebaseapp.com",
   projectId: "skyvest-student-hub"
 };
@@ -30,55 +31,66 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let currentUser;
+let user;
 
-auth.onAuthStateChanged(user=>{
-  if(user){
-    currentUser = user;
-    setTimeout(()=> loadUser(user.uid), 300);
-  } else {
-    window.location.href="index.html";
-  }
+auth.onAuthStateChanged(u=>{
+  if(!u) return location.href="index.html";
+  user=u;
+  loadBalance();
+  loadHistory();
 });
 
-function loadUser(uid){
-  db.collection("users").doc(uid).get().then(doc=>{
-    let d = doc.data();
-    document.getElementById("balance").innerText = d.balance || 0;
-    document.getElementById("savings").innerText = d.savings || 0;
+function loadBalance(){
+  db.collection("users").doc(user.uid).get().then(doc=>{
+    balance.innerText = doc.data().balance || 0;
   });
 }
 
 function deposit(){
-  let amount = prompt("Amount sent:");
+  let amt = prompt("Amount:");
   let proof = prompt("Reference:");
 
   db.collection("deposits").add({
-    userId: currentUser.uid,
-    amount: Number(amount),
+    userId: user.uid,
+    email: user.email,
+    amount: Number(amt),
     proof: proof,
-    status: "pending"
+    status: "pending",
+    date: new Date()
   });
-
-  alert("Deposit request sent");
 }
 
-function requestWithdrawal(){
-  let amount = prompt("Amount:");
-  let account = prompt("Account details:");
+function withdraw(){
+  let amt = prompt("Amount:");
+  let acc = prompt("Account:");
 
   db.collection("withdrawals").add({
-    userId: currentUser.uid,
-    amount: Number(amount),
-    account: account,
-    status: "pending"
+    userId: user.uid,
+    email: user.email,
+    amount: Number(amt),
+    account: acc,
+    status: "pending",
+    date: new Date()
   });
-
-  alert("Withdrawal request sent");
 }
 
-function logout(){
-  auth.signOut().then(()=> window.location.href="index.html");
+function loadHistory(){
+  db.collection("deposits").where("userId","==",user.uid).get()
+  .then(snap=>{
+    history.innerHTML="";
+    snap.forEach(doc=>{
+      let d=doc.data();
+      history.innerHTML+=`<p>+₦${d.amount} (${d.status})</p>`;
+    });
+  });
+
+  db.collection("withdrawals").where("userId","==",user.uid).get()
+  .then(snap=>{
+    snap.forEach(doc=>{
+      let d=doc.data();
+      history.innerHTML+=`<p>-₦${d.amount} (${d.status})</p>`;
+    });
+  });
 }
 </script>
 
